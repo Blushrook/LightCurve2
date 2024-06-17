@@ -1,0 +1,81 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import os
+import numpy as np
+
+class LightCurveData:
+    def __init__(self, directory, save_directory):
+        self.directory = directory
+        self.save_directory = save_directory
+        os.makedirs(self.save_directory, exist_ok=True)
+
+    def load_data(self, filename):
+        file_path = os.path.join(self.directory, filename)
+        try:
+            data = pd.read_csv(file_path, sep=r'\s+')
+            data.columns = data.columns.str.strip()
+            data = data.replace('-', pd.NA).astype(float)
+            return data
+        except FileNotFoundError as e:
+            print(f"Failed to find the file {filename}:", e)
+        except Exception as e:
+            print(f"An error occurred while reading {filename}:", e)
+        return None
+
+    def plot_light_curve(self, data, title='Light Curve', filename='plot.png'):
+        save_path = os.path.join(self.save_directory, filename)
+        if os.path.exists(save_path):
+            return
+
+        if data is not None and not data.empty:
+            try:
+                plt.figure(figsize=(10, 6))
+                plt.errorbar(data['BTJD'], data['cts'], yerr=data['e_cts'], fmt='o', color='blue', ecolor='lightgray', elinewidth=3, capsize=0)
+                plt.title(title)
+                plt.xlabel('BTJD (Barycentric TESS Julian Date)')
+                plt.ylabel('Counts (cts)')
+                plt.grid(True)
+                plt.savefig(save_path)
+                plt.close()
+                print(f"Plot saved to {save_path}")
+            except KeyError as e:
+                print(f"Key error: {e} - Check that 'BTJD', 'cts', and 'e_cts' are in your DataFrame")
+            except Exception as e:
+                print(f"An error occurred while plotting {title}: {e}")
+        else:
+            print("No data to plot.")
+
+    def process_all_files(self):
+        files = [f for f in os.listdir(self.directory) if f.startswith('lc_')]
+        num_files = len(files)
+        print(f"Number of files to process: {num_files}")
+        for file in files:
+            data = self.load_data(file)
+            if data is not None:
+                mean_flux, stddev, weighted_stddev = self.calculate_weighted_standard_deviation(data)
+                print(f"File: {file}, Mean Flux: {mean_flux}, Standard Deviation: {stddev}, Weighted Standard Deviation: {weighted_stddev}")
+                plot_filename = f"{os.path.splitext(file)[0]}.png"
+                self.plot_light_curve(data, title=f'Light Curve for {file}', filename=plot_filename)
+
+    def calculate_weighted_standard_deviation(self, data):
+        if 'cts' in data.columns and 'e_cts' in data.columns:
+            flux = data['cts']
+            flux_uncertainty = data['e_cts']
+            mean_flux = flux.mean()
+            stddev = flux.std(ddof=1)
+            weights = 1 / (flux_uncertainty**2)
+            weighted_mean = np.sum(weights * flux) / np.sum(weights)
+            weighted_variance = np.sum(weights * (flux - weighted_mean) **2) / np.sum(weights)
+            weighted_stddev = np.sqrt(weighted_variance)
+
+            return mean_flux, stddev, weighted_stddev
+        else:
+            print("Columns 'cts' or 'e_cts' not found in the data.")
+            return None, None, None
+
+
+directory = '/home/kicowlin/SummerResearch2024/Sector07/cam4_ccd4/lc_hyperleda'
+save_directory = '/home/kicowlin/SummerResearch2024/lc_plots/Sector07/cam4_ccd4'
+light_curve_manager = LightCurveData(directory, save_directory)
+
+light_curve_manager.process_all_files()

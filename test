@@ -1,0 +1,25 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from catalogs.HyperLedaCsv import HyperLedaCsv
+
+camera_files = [
+    "HyperLEDA/s07/hyperleda_s07_cam1.txt",
+    "HyperLEDA/s07/hyperleda_s07_cam2.txt",
+    "HyperLEDA/s07/hyperleda_s07_cam3.txt",
+    "HyperLEDA/s07/hyperleda_s07_cam4.txt"
+]
+
+for i, cam in enumerate(camera_files, start=1):
+    cat = HyperLedaCsv(cam)
+    mask = cat.agnclass == 'S1.5'
+
+    print(f"Processing Camera {i}...")
+    print(len(cat.agnclass))
+    print(cat.agnclass)
+    print(cat.objname[mask], cat.objtype[mask], cat.agnclass[mask])
+    print(np.c_[cat.ra, cat.dec, cat.agnclass])
+
+    if 'S1.5' in cat.agnclass:
+        print(f"S1.5 exists in the catalog for Camera {i}.")
+    else:
+        print(f"S1.5 not exist in the catalog for Camera {i}.")
